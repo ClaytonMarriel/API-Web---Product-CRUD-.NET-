@@ -1,8 +1,6 @@
-﻿using ApiWeb.Data;
-using ApiWeb.DTOs.Products;
-using ApiWeb.Mappings;
+﻿using ApiWeb.DTOs.Products;
+using ApiWeb.Services.Products;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace ApiWeb.Controllers
 {
@@ -10,52 +8,36 @@ namespace ApiWeb.Controllers
     [ApiController]
     public class ProductController : ControllerBase
     {
-        private readonly AppDbContent _context;
-        public ProductController(AppDbContent context)
+        private readonly IProductService _productService;
+        public ProductController(IProductService productService)
         {
-            _context = context;
+            _productService = productService;
         }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ProductResponse>>> GetAll(CancellationToken ct)
         {
-            var products = await _context.Products
-                .AsNoTracking()
-                .ToListAsync(ct);
-
-            var response = products.Select(p => p.ToResponse()).ToList();
+            var response = await _productService.GetAllAsync(ct);
             return Ok(response);
         }
 
         [HttpGet("{id:int}")]
-
         public async Task<ActionResult<ProductResponse>> GetById([FromRoute] int id, CancellationToken ct)
         {
+            var response = await _productService.GetByIdAsync(id, ct);
 
-            var product = await _context.Products
-                .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Id == id, ct);
-
-            if (product is null)
+            if (response is null)
                 return NotFound("Product not found");
 
-
-            return Ok(product.ToResponse());
+            return Ok(response);
         }
 
         [HttpPost]
         public async Task<ActionResult<ProductResponse>> Create(
-        [FromBody] CreateProductRequest request,
-        CancellationToken ct)
+            [FromBody] CreateProductRequest request,
+            CancellationToken ct)
         {
-            var entity = request.ToEntity();
-
-            await _context.Products.AddAsync(entity, ct);
-            await _context.SaveChangesAsync(ct);
-
-            //var response = entity.ToResponse();
-            var response = ApiWeb.Mappings.ProductMappingExtensions.ToResponse(entity);
-
+            var response = await _productService.CreateAsync(request, ct);
 
             return CreatedAtAction(
                 nameof(GetById),
@@ -70,28 +52,21 @@ namespace ApiWeb.Controllers
             [FromBody] UpdateProductRequest request,
             CancellationToken ct)
         {
-            var entity = await _context.Products.FirstOrDefaultAsync(p => p.Id == id, ct);
+            var response = await _productService.UpdateAsync(id, request, ct);
 
-            if (entity is null)
+            if (response is null)
                 return NotFound();
 
-            entity.ApplyUpdate(request);
-
-            await _context.SaveChangesAsync(ct);
-
-            return Ok(entity.ToResponse());
+            return Ok(response);
         }
 
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete([FromRoute] int id, CancellationToken ct)
         {
-            var entity = await _context.Products.FirstOrDefaultAsync(p => p.Id == id, ct);
+            var deleted = await _productService.DeleteAsync(id, ct);
 
-            if (entity is null)
+            if (!deleted)
                 return NotFound();
-
-            _context.Products.Remove(entity);
-            await _context.SaveChangesAsync(ct);
 
             return NoContent();
         }

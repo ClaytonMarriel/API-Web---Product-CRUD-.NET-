@@ -1,6 +1,8 @@
 using ApiWeb.Data;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
+using ApiWeb.Middlewares;
+using ApiWeb.Services.Products;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +17,8 @@ builder.Services.AddDbContext<AppDbContent>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 
+builder.Services.AddScoped<IProductService, ProductService>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -25,6 +29,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseMiddleware<GlobalExceptionMiddleware>();
 
 app.UseAuthorization();
 
